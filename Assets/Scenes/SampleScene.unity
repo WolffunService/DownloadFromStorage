@@ -1044,6 +1044,7 @@ MonoBehaviour:
   config:
     storageURL: https://storage.googleapis.com/thetan-staging-asset
     cachedFolderLocation: /StorageResources
+  listLoadedTexture: []
 --- !u!114 &1821919583
 MonoBehaviour:
   m_ObjectHideFlags: 0
