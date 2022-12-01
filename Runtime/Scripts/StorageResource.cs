@@ -23,6 +23,10 @@ namespace Wolffun.StorageResource
 
         private static bool _isInitialized;
 
+        private static Dictionary<string, UniTaskCompletionSource<Texture2D>> loadingProcess;
+        private static Dictionary<string, Texture2D> loadedResource;
+
+
         public static void Initialize(string storageURL, string cachedFolderLocation = null)
         {
             Initialize(new StorageResouceConfigDataModel()
@@ -44,21 +48,29 @@ namespace Wolffun.StorageResource
             cachedMetaData = new StorageCachedMetaData();
             cachedMetaData.Init(configData.cachedFolderLocation);
 
+            loadingProcess = new Dictionary<string, UniTaskCompletionSource<Texture2D>>();
+            loadedResource = new Dictionary<string, Texture2D>();
+
             _isInitialized = true;
         }
 
-        public static UniTask<Texture2D> LoadImg(string relativePathUrl)
+        public static async UniTask<Texture2D> LoadImg(string relativePathUrl)
         {
             if (!_isInitialized)
                 Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION);
+
+            if (loadedResource.TryGetValue(relativePathUrl, out var texture))
+            {
+                return texture;
+            }
             
             if (cachedMetaData.IsFileDownloaded(relativePathUrl))
             {
-                return LoadImgFromCached(relativePathUrl);
+                return await LoadImgFromCached(relativePathUrl);
             }
             else
             {
-                return LoadAndCacheImgFromStorage(relativePathUrl);
+                return await LoadAndCacheImgFromStorage(relativePathUrl);
             }
         }
 
@@ -83,71 +95,107 @@ namespace Wolffun.StorageResource
 #endif
                 tex.LoadImage(fileData); //..this will auto-resize the texture dimensions.
                 tex.Compress(false);
+
+                loadedResource[relativePath] = tex;
             }
             else
             {
                 cachedMetaData.MarkFileUrlInvalid(relativePath);
-                LoadAndCacheImgFromStorage(relativePath);
+                tex = await LoadAndCacheImgFromStorage(relativePath);
             }
-            
+
             return tex;
         }
 
         private static async UniTask<Texture2D> LoadAndCacheImgFromStorage(string relativePath)
         {
+            if (loadingProcess.TryGetValue(relativePath, out var completeSource))
+                return await completeSource.Task;
+
             var urlPullPath = ZString.Concat(configData.storageURL, relativePath);
             
             UnityWebRequest www = UnityWebRequestTexture.GetTexture(urlPullPath);
-            await www.SendWebRequest();
 
-            if (www.isNetworkError || www.isHttpError)
+            loadingProcess[relativePath] = new UniTaskCompletionSource<Texture2D>();
+
+            try
             {
-                Debug.LogError("Save image fail - " + urlPullPath + " - " + www.error);
-                return null;
-            }
-            else
-            {
-                var myTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
+                var operation = www.SendWebRequest();
 
+                await operation;
 
-                byte[] imageBytes = myTexture.EncodeToPNG();
-
-                var localFullPath = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation, relativePath);
-                string[] folderName = localFullPath.Split('/');
-                string PathFolder = string.Empty;
-
-                using (var strBuilder = ZString.CreateStringBuilder())
+                if (www.isNetworkError || www.isHttpError)
                 {
-                    if (folderName.Length > 0)
+                    Debug.LogError("Save image fail - " + urlPullPath + " - " + www.error);
+                    loadingProcess[relativePath].TrySetResult(null);
+                    loadingProcess.Remove(relativePath);
+                    return null;
+                }
+                else
+                {
+                    var myTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
+
+                    loadingProcess[relativePath].TrySetResult(myTexture);
+                    loadingProcess.Remove(relativePath);
+                    loadedResource.Add(relativePath, myTexture);
+
+                    byte[] imageBytes = myTexture.EncodeToPNG();
+
+                    var localFullPath = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation, relativePath);
+                    string[] folderName = localFullPath.Split('/');
+                    string PathFolder = string.Empty;
+
+                    using (var strBuilder = ZString.CreateStringBuilder())
                     {
-                        for (int i = 0; i < folderName.Length - 1; i++)
+                        if (folderName.Length > 0)
                         {
-                            var pathname = folderName[i];
-                            if (string.IsNullOrEmpty(pathname))
+                            for (int i = 0; i < folderName.Length - 1; i++)
                             {
-                                continue;
+                                var pathname = folderName[i];
+                                if (string.IsNullOrEmpty(pathname))
+                                {
+                                    continue;
+                                }
+
+                                if (i != 0)
+                                    strBuilder.Append("/");
+
+                                strBuilder.Append(folderName[i]);
                             }
-                            
-                            if(i != 0)
-                                strBuilder.Append("/");
-                            
-                            strBuilder.Append(folderName[i]);
                         }
+
+                        PathFolder = strBuilder.ToString();
                     }
 
-                    PathFolder = strBuilder.ToString();
+
+                    Directory.CreateDirectory(PathFolder);
+
+                    File.WriteAllBytes(localFullPath, imageBytes);
+
+                    cachedMetaData.MarkFileUrlDownloaded(relativePath);
+
+                    return myTexture;
+
+
                 }
-            
-
-                Directory.CreateDirectory(PathFolder);
-
-                File.WriteAllBytes(localFullPath, imageBytes);
-                
-                cachedMetaData.MarkFileUrlDownloaded(relativePath);
-                
-                return myTexture;
-
             }
+            catch(Exception ex)
+            {
+                Debug.LogError("Download Image fail - " + urlPullPath + " - " + ex.Message);
+                loadingProcess[relativePath].TrySetResult(null);
+                loadingProcess.Remove(relativePath);
+                return null;
+            }
+        }
+
+        public static void ReleaseAllCached()
+        {
+            foreach(var resource in loadedResource)
+            {
+                GameObject.Destroy(resource.Value);
+            }
+
+            loadedResource.Clear();
         }
     }
 }
