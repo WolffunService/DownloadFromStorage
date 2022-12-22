@@ -48,6 +48,8 @@ namespace Wolffun.StorageResource
             cachedMetaData = new StorageCachedMetaData();
             cachedMetaData.Init(configData.cachedFolderLocation);
 
+            ReleaseAllCached();
+            
             loadingProcess = new Dictionary<string, UniTaskCompletionSource<Texture2D>>();
             loadedResource = new Dictionary<string, Texture2D>();
 
@@ -110,13 +112,16 @@ namespace Wolffun.StorageResource
         private static async UniTask<Texture2D> LoadAndCacheImgFromStorage(string relativePath)
         {
             if (loadingProcess.TryGetValue(relativePath, out var completeSource))
+            {
+                
                 return await completeSource.Task;
+            }
 
             var urlPullPath = ZString.Concat(configData.storageURL, relativePath);
             
             UnityWebRequest www = UnityWebRequestTexture.GetTexture(urlPullPath);
 
-            loadingProcess[relativePath] = new UniTaskCompletionSource<Texture2D>();
+            loadingProcess.Add(relativePath, new UniTaskCompletionSource<Texture2D>());
 
             try
             {
@@ -135,9 +140,16 @@ namespace Wolffun.StorageResource
                 {
                     var myTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
 
-                    loadingProcess[relativePath].TrySetResult(myTexture);
-                    loadingProcess.Remove(relativePath);
-                    loadedResource.Add(relativePath, myTexture);
+                    if(loadingProcess.TryGetValue(relativePath, out var loading))
+                    {
+                        loading.TrySetResult(myTexture);
+                        loadingProcess.Remove(relativePath);
+                    }
+
+                    if(!loadedResource.ContainsKey(relativePath))
+                    {
+                        loadedResource.Add(relativePath, myTexture);
+                    }
 
                     byte[] imageBytes = myTexture.EncodeToPNG();
 
@@ -190,8 +202,14 @@ namespace Wolffun.StorageResource
 
         public static void ReleaseAllCached()
         {
+            if (loadedResource == null)
+                return;
+            
             foreach(var resource in loadedResource)
             {
+                if(resource.Value == null)
+                    continue;
+                
                 GameObject.Destroy(resource.Value);
             }
 
