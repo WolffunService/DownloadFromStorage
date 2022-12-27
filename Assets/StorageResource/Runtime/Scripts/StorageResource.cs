@@ -87,7 +87,7 @@ namespace Wolffun.StorageResource
             if (File.Exists(imgAbsolutePath))
             {
                 fileData = File.ReadAllBytes(imgAbsolutePath);
-#if UNITY_EDITOR
+#if UNITY_EDITOR || UNITY_STANDALONE_WIN
                 tex = new Texture2D(2, 2, TextureFormat.ARGB32, false);
 #elif UNITY_IOS
                 tex = new Texture2D(2, 2, TextureFormat.ASTC_5x5, false);
