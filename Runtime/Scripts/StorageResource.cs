@@ -93,7 +93,7 @@ namespace Wolffun.StorageResource
                 tex = new Texture2D(2, 2, TextureFormat.ASTC_5x5, false);
 #else
                 // android
-                tex = new Texture2D(2, 2, TextureFormat.ETC2_RGBA8, false);
+                tex = new Texture2D(4, 4, TextureFormat.ETC2_RGBA8, false);
 #endif
                 tex.LoadImage(fileData); //..this will auto-resize the texture dimensions.
                 tex.Compress(false);
