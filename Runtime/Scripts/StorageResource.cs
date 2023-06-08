@@ -215,5 +215,19 @@ namespace Wolffun.StorageResource
 
             loadedResource.Clear();
         }
+
+        public static void ReleaseCached(string relativeUrl)
+        {
+            if (loadedResource == null)
+                return;
+
+            if (loadedResource.ContainsKey(relativeUrl))
+            {
+                if (loadedResource[relativeUrl] == null)
+                    return;
+                GameObject.Destroy(loadedResource[relativeUrl]);
+                loadedResource.Remove(relativeUrl);
+            }
+        }
     }
 }
