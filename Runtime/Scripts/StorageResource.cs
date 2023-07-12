@@ -19,6 +19,7 @@ namespace Wolffun.StorageResource
         private const string DEFAULT_CACHED_FOLDER_LOCATION = "/StorageResource";
         private const string DEFAULT_STORAGE_URL = "https://assets.thetanarena.com";
         private const long DEFAULT_MAX_CACHED_FOLDER_SIZE_MB = 100;
+        private const int DEFAULT_MAX_CACHED_DAYS = 30;
 
         private static StorageCachedMetaData cachedMetaData;
 
@@ -29,13 +30,14 @@ namespace Wolffun.StorageResource
 
 
         public static void Initialize(string storageURL, string cachedFolderLocation = null,
-            long maxCachedFolderSizeMB = 100)
+            long maxCachedFolderSizeMB = 100, int maxCachedDays = 30)
         {
             Initialize(new StorageResouceConfigDataModel()
             {
                 storageURL = storageURL,
                 cachedFolderLocation = cachedFolderLocation,
-                maxCachedFolderSizeMB = maxCachedFolderSizeMB
+                maxCachedFolderSizeMB = maxCachedFolderSizeMB,
+                maxCachedDays = maxCachedDays
             });
         }
 
@@ -49,7 +51,11 @@ namespace Wolffun.StorageResource
 
             if (config.maxCachedFolderSizeMB <= 0)
                 config.maxCachedFolderSizeMB = DEFAULT_MAX_CACHED_FOLDER_SIZE_MB;
-            
+
+            if (config.maxCachedDays < 1)
+                config.maxCachedDays = DEFAULT_MAX_CACHED_DAYS;
+
+
             configData = config;
             cachedMetaData = new StorageCachedMetaData();
             cachedMetaData.Init(configData.cachedFolderLocation);
@@ -65,7 +71,8 @@ namespace Wolffun.StorageResource
         public static async UniTask<Texture2D> LoadImg(string relativePathUrl)
         {
             if (!_isInitialized)
-                Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION, DEFAULT_MAX_CACHED_FOLDER_SIZE_MB);
+                Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION, 
+                    DEFAULT_MAX_CACHED_FOLDER_SIZE_MB, DEFAULT_MAX_CACHED_DAYS);
 
             if (loadedResource.TryGetValue(relativePathUrl, out var texture))
             {
@@ -265,11 +272,14 @@ namespace Wolffun.StorageResource
             var cacheFolder = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
             long currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(cacheFolder);
 
+            // oldest files on top of list
             var currentDownloadedImg = cachedMetaData.listLinkDownloaded.First;
             while (currentCacheFolderSizeBytes > maxCachedFolderSizeBytes)
             {               
                 if (currentDownloadedImg == null)
                     break; // end of list
+
+                var nextNode = currentDownloadedImg.Next;
 
                 var imgAbsolutePath = GetAbsolutePath(currentDownloadedImg.Value);
                 if (File.Exists(imgAbsolutePath))
@@ -278,16 +288,36 @@ namespace Wolffun.StorageResource
                     File.Delete(imgAbsolutePath);
                 }
 
-                var tmpNode = currentDownloadedImg.Next;
                 cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg);
-                currentDownloadedImg = tmpNode;
-                continue;
+                currentDownloadedImg = nextNode;
             }
         }
 
         private static void CleanUpDownloadedImgByLastAccessTime()
         {
+            // oldest files on top of list
+            var currentDownloadedImg = cachedMetaData.listLinkDownloaded.First;
+            while (currentDownloadedImg != null)
+            {
+                var nextNode = currentDownloadedImg.Next;
 
+                var imgAbsolutePath = GetAbsolutePath(currentDownloadedImg.Value);
+                if (!File.Exists(imgAbsolutePath))
+                {
+                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg);
+                    currentDownloadedImg = nextNode;
+                    continue;
+                }
+
+                DateTime fileLastAccessTime = new FileInfo(imgAbsolutePath).LastAccessTime;
+                if (fileLastAccessTime.AddDays(configData.maxCachedDays).CompareTo(DateTime.Now) < 0)
+                {
+                    File.Delete(imgAbsolutePath);
+                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg);
+                } 
+
+                currentDownloadedImg = nextNode;
+            }
         }
 
         private static string GetAbsolutePath(string relativePathUrl)
