@@ -1561,6 +1561,7 @@ MonoBehaviour:
     storageURL: https://storage.googleapis.com/thetan-staging-asset
     cachedFolderLocation: /StorageResources
     maxCachedFolderSizeMB: 1
+    maxCachedDays: 30
   listLoadedTexture: []
 --- !u!114 &1821919583
 MonoBehaviour:
