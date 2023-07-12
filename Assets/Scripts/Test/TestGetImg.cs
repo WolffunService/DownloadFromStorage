@@ -14,6 +14,7 @@ public class TestGetImg : MonoBehaviour
 {
     [SerializeField] private TMP_InputField inputUrl;
     [SerializeField] private Button btnLoadImg;
+    [SerializeField] private Button btnLoadCosmetic;
     [SerializeField] private Image img;
 
 
@@ -24,8 +25,9 @@ public class TestGetImg : MonoBehaviour
     private void Start()
     {
         StorageResource.Initialize(config);
-        
-        btnLoadImg.onClick.AddListener(OnClickLoadImg);
+
+        btnLoadCosmetic.onClick.AddListener(LoadCosmeticAll);
+        btnLoadImg.onClick.AddListener(LoadImgUrl);
     }
 
     [ContextMenu("Clear Cache")]
@@ -39,7 +41,7 @@ public class TestGetImg : MonoBehaviour
         listLoadedTexture.Clear();
     }
 
-    private async void OnClickLoadImg()
+    private async void LoadCosmeticAll()
     {
         var startTime = Time.realtimeSinceStartup;
         for (int i = 0; i <= 30; i++)
@@ -90,12 +92,18 @@ public class TestGetImg : MonoBehaviour
         endTime = Time.realtimeSinceStartup;
         Debug.Log("Load from cache " + (endTime - startTime));
 
-        await UniTask.Delay(5000);
-        StorageResource.ReleaseAllCached();
+        //await UniTask.Delay(5000);
+        //StorageResource.ReleaseAllCached();
     }
 
     private async void LoadCosmetic(int id)
     {
         listLoadedTexture.Add(await StorageResource.LoadImg(ZString.Format("/cosmetics/cosmetic_{0}.png", id)));
+    }
+
+    private async void LoadImgUrl()
+    {
+        listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text));
+        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
     }
 }
