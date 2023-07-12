@@ -18,6 +18,7 @@ namespace Wolffun.StorageResource
         
         private const string DEFAULT_CACHED_FOLDER_LOCATION = "/StorageResource";
         private const string DEFAULT_STORAGE_URL = "https://assets.thetanarena.com";
+        private const long DEFAULT_MAX_CACHED_FOLDER_SIZE_MB = 100;
 
         private static StorageCachedMetaData cachedMetaData;
 
@@ -27,12 +28,14 @@ namespace Wolffun.StorageResource
         private static Dictionary<string, Texture2D> loadedResource;
 
 
-        public static void Initialize(string storageURL, string cachedFolderLocation = null)
+        public static void Initialize(string storageURL, string cachedFolderLocation = null,
+            long maxCachedFolderSizeMB = 100)
         {
             Initialize(new StorageResouceConfigDataModel()
             {
                 storageURL = storageURL,
                 cachedFolderLocation = cachedFolderLocation,
+                maxCachedFolderSizeMB = maxCachedFolderSizeMB
             });
         }
 
@@ -43,6 +46,9 @@ namespace Wolffun.StorageResource
 
             if (string.IsNullOrEmpty(config.cachedFolderLocation))
                 config.cachedFolderLocation = DEFAULT_CACHED_FOLDER_LOCATION;
+
+            if (config.maxCachedFolderSizeMB <= 0)
+                config.maxCachedFolderSizeMB = DEFAULT_MAX_CACHED_FOLDER_SIZE_MB;
             
             configData = config;
             cachedMetaData = new StorageCachedMetaData();
@@ -59,10 +65,11 @@ namespace Wolffun.StorageResource
         public static async UniTask<Texture2D> LoadImg(string relativePathUrl)
         {
             if (!_isInitialized)
-                Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION);
+                Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION, DEFAULT_MAX_CACHED_FOLDER_SIZE_MB);
 
             if (loadedResource.TryGetValue(relativePathUrl, out var texture))
             {
+                cachedMetaData.MarkFileBeingUsed(relativePathUrl);
                 return texture;
             }
             
@@ -81,8 +88,7 @@ namespace Wolffun.StorageResource
             Texture2D tex = null;
             byte[] fileData;
 
-            var imgAbsolutePath = ZString.Concat(Application.persistentDataPath,
-                configData.cachedFolderLocation, relativePath);
+            var imgAbsolutePath = GetAbsolutePath(relativePath);
             
             if (File.Exists(imgAbsolutePath))
             {
@@ -98,6 +104,7 @@ namespace Wolffun.StorageResource
                 tex.LoadImage(fileData); //..this will auto-resize the texture dimensions.
                 tex.Compress(false);
 
+                cachedMetaData.MarkFileBeingUsed(relativePath);
                 loadedResource[relativePath] = tex;
             }
             else
@@ -153,7 +160,7 @@ namespace Wolffun.StorageResource
 
                     byte[] imageBytes = myTexture.EncodeToPNG();
 
-                    var localFullPath = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation, relativePath);
+                    var localFullPath = GetAbsolutePath(relativePath);
                     string[] folderName = localFullPath.Split('/');
                     string PathFolder = string.Empty;
 
@@ -187,8 +194,6 @@ namespace Wolffun.StorageResource
                     cachedMetaData.MarkFileUrlDownloaded(relativePath);
 
                     return myTexture;
-
-
                 }
             }
             catch(Exception ex)
@@ -228,6 +233,72 @@ namespace Wolffun.StorageResource
                 GameObject.Destroy(loadedResource[relativeUrl]);
                 loadedResource.Remove(relativeUrl);
             }
+        }
+
+        public static async UniTaskVoid CleanUpDownloadedImg()
+        {
+#if DEBUG
+            long currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(GetCachedFolderPath());
+            Debug.Log("cacheFolderSize before cleanup: " + currentCacheFolderSizeBytes.ToString());
+            var startTime = Time.realtimeSinceStartup;
+#endif
+
+            CleanUpDownloadedImgByTotalCachedFolderSize();
+            CleanUpDownloadedImgByLastAccessTime();
+
+#if DEBUG
+            var endTime = Time.realtimeSinceStartup;
+            currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(GetCachedFolderPath());
+            Debug.Log("cacheFolderSize after cleanup: " + currentCacheFolderSizeBytes.ToString());
+            Debug.Log("CleanUpDownloadedImg total time: " + (endTime - startTime));
+#endif
+
+            await UniTask.Yield();
+        }
+
+
+        // Should we cleanup by folder size when running LoadImg instead
+        // At this time I want LoadImg run as fast as posible so I do it this way
+        private static void CleanUpDownloadedImgByTotalCachedFolderSize()
+        {
+            long maxCachedFolderSizeBytes = configData.maxCachedFolderSizeMB * 1024 * 1024;
+            var cacheFolder = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
+            long currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(cacheFolder);
+
+            var currentDownloadedImg = cachedMetaData.listLinkDownloaded.First;
+            while (currentCacheFolderSizeBytes > maxCachedFolderSizeBytes)
+            {               
+                if (currentDownloadedImg == null)
+                    break; // end of list
+
+                var imgAbsolutePath = GetAbsolutePath(currentDownloadedImg.Value);
+                if (File.Exists(imgAbsolutePath))
+                {
+                    currentCacheFolderSizeBytes -= new FileInfo(imgAbsolutePath).Length;
+                    File.Delete(imgAbsolutePath);
+                }
+
+                var tmpNode = currentDownloadedImg.Next;
+                cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg);
+                currentDownloadedImg = tmpNode;
+                continue;
+            }
+        }
+
+        private static void CleanUpDownloadedImgByLastAccessTime()
+        {
+
+        }
+
+        private static string GetAbsolutePath(string relativePathUrl)
+        {
+            return ZString.Concat(Application.persistentDataPath,
+                configData.cachedFolderLocation, relativePathUrl);
+        }
+
+        private static string GetCachedFolderPath()
+        {
+            return ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
         }
     }
 }
