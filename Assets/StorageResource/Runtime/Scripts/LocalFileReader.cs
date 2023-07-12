@@ -72,5 +72,26 @@ namespace Wolffun.StorageResource
                 Debug.LogError("Save data --" + data.GetType() + "-- is error: " + ex.GetBaseException() + "\n" + ex.StackTrace);
             }
         }
+
+        public static long GetDirectorySizeBytes(string directoryPath)
+        {
+            long size = 0;
+            DirectoryInfo directoryInfo = new DirectoryInfo(directoryPath);
+
+            FileInfo[] fileInfos = directoryInfo.GetFiles();
+            foreach (FileInfo fileInfo in fileInfos)
+            {
+                size += fileInfo.Length;
+            }
+
+            DirectoryInfo[] subDirectoryInfos = directoryInfo.GetDirectories();
+            foreach (DirectoryInfo subDirectoryInfo in subDirectoryInfos)
+            {
+                // Should we avoid using recursive?
+                size += GetDirectorySizeBytes(subDirectoryInfo.FullName);
+            }
+
+            return size;
+        }
     }
 }

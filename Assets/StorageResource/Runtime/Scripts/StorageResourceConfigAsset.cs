@@ -11,5 +11,6 @@ namespace Wolffun.StorageResource
     {
         public string storageURL;
         public string cachedFolderLocation;
+        public long maxCachedFolderSizeMB;
     }
 }

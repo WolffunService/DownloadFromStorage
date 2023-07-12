@@ -15,6 +15,7 @@ public class TestGetImg : MonoBehaviour
     [SerializeField] private TMP_InputField inputUrl;
     [SerializeField] private Button btnLoadImg;
     [SerializeField] private Button btnLoadCosmetic;
+    [SerializeField] private Button btnCleanupDownloadedImg;
     [SerializeField] private Image img;
 
 
@@ -26,8 +27,9 @@ public class TestGetImg : MonoBehaviour
     {
         StorageResource.Initialize(config);
 
-        btnLoadCosmetic.onClick.AddListener(LoadCosmeticAll);
         btnLoadImg.onClick.AddListener(LoadImgUrl);
+        btnLoadCosmetic.onClick.AddListener(LoadCosmeticAll);
+        btnCleanupDownloadedImg.onClick.AddListener(CleanUpDownloadedImage);
     }
 
     [ContextMenu("Clear Cache")]
@@ -99,11 +101,20 @@ public class TestGetImg : MonoBehaviour
     private async void LoadCosmetic(int id)
     {
         listLoadedTexture.Add(await StorageResource.LoadImg(ZString.Format("/cosmetics/cosmetic_{0}.png", id)));
+        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
     }
 
     private async void LoadImgUrl()
     {
+        var startTime = Time.realtimeSinceStartup;
         listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text));
         img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+        var endTime = Time.realtimeSinceStartup;
+        Debug.Log("Load from cache " + (endTime - startTime));
+    }
+
+    private void CleanUpDownloadedImage()
+    {
+        StorageResource.CleanUpDownloadedImg().Forget();
     }
 }
