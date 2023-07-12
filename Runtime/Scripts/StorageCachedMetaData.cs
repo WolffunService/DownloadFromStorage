@@ -59,6 +59,9 @@ namespace Wolffun.StorageResource
                 url = fileUrl,
             };
 
+            if (listLinkDownloaded == null)
+                listLinkDownloaded = new LinkedList<string>();
+
             // recently used file will be move to end of list
             listLinkDownloaded.AddLast(fileUrl);
             
@@ -105,7 +108,15 @@ namespace Wolffun.StorageResource
             if (!IsFileDownloaded(url))
                 return;
 
-            listLinkDownloaded.Remove(listLinkDownloaded.FindLast(url));
+            try
+            {
+                listLinkDownloaded.Remove(listLinkDownloaded.FindLast(url));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("MarkFileBeingUsed throw exception " + ex.Message);
+            }
+
             listLinkDownloaded.AddLast(url);
 
             // Is that ok if we do this too many times?
