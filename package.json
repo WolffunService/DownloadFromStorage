@@ -1,6 +1,6 @@
 {
   "name": "com.wolffun.download-from-storage",
-  "version": "1.0.6-ugc-2",
+  "version": "1.0.6-ugc-3",
   "displayName": "Download From Storage",
   "description": "This is a package let you download image, video, sound,... from cloud storage",
   "keywords": [
