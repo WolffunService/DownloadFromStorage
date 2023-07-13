@@ -24,7 +24,7 @@ namespace Wolffun.StorageResource
             LoadListCached(listCacheFilePath);
         }
 
-        private void SaveCache()
+        internal void SaveCache()
         {
             LocalFileManager.WriteDataToLocalFile(fullFilePath, dicLinkDownloaded);
             LocalFileManager.WriteDataToLocalFile(listCacheFilePath, listLinkDownloaded);
@@ -81,7 +81,7 @@ namespace Wolffun.StorageResource
             SaveCache();
         }
 
-        internal void MarkFileUrlInvalid(string fileUrl, LinkedListNode<string> node)
+        internal void MarkFileUrlInvalid(string fileUrl, LinkedListNode<string> node, bool isSaveCachedMetaData = true)
         {
             if (dicLinkDownloaded == null)
                 dicLinkDownloaded = new Dictionary<string, StorageCachedMetaDataModel>();
@@ -98,16 +98,16 @@ namespace Wolffun.StorageResource
                 Debug.LogError("MarkFileUrlInvalid throw exception " + ex.Message);
             }
 
-            SaveCache();
+            if (isSaveCachedMetaData)
+                SaveCache();
         }
 
-        // recently used file will be move to end of list
-        // unused file will stay at top of list
         internal void MarkFileBeingUsed(string url)
         {
             if (!IsFileDownloaded(url))
                 return;
 
+            // recently used file will be move to end of list
             try
             {
                 listLinkDownloaded.Remove(listLinkDownloaded.FindLast(url));
@@ -119,8 +119,8 @@ namespace Wolffun.StorageResource
 
             listLinkDownloaded.AddLast(url);
 
-            // Is that ok if we do this too many times?
-            SaveCache();
+            // I think this is not good when called too many times
+            // SaveCache();
         }
 
 
