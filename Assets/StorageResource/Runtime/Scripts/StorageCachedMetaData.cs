@@ -108,13 +108,17 @@ namespace Wolffun.StorageResource
                 return;
 
             // recently used file will be move to end of list
-            try
+            var node = listLinkDownloaded.FindLast(url);
+            if (node != null)
             {
-                listLinkDownloaded.Remove(listLinkDownloaded.FindLast(url));
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("MarkFileBeingUsed throw exception " + ex.Message);
+                try
+                {
+                    listLinkDownloaded.Remove(node);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("MarkFileBeingUsed throw exception " + ex.Message);
+                }
             }
 
             listLinkDownloaded.AddLast(url);
