@@ -16,6 +16,8 @@ public class TestGetImg : MonoBehaviour
     [SerializeField] private Button btnLoadImg;
     [SerializeField] private Button btnLoadCosmetic;
     [SerializeField] private Button btnCleanupDownloadedImg;
+    [SerializeField] private Button btnReleaseAllCache;
+    [SerializeField] private Button btnSaveCacheMetaData;
     [SerializeField] private Image img;
 
 
@@ -30,6 +32,8 @@ public class TestGetImg : MonoBehaviour
         btnLoadImg.onClick.AddListener(LoadImgUrl);
         btnLoadCosmetic.onClick.AddListener(LoadCosmeticAll);
         btnCleanupDownloadedImg.onClick.AddListener(CleanUpDownloadedImage);
+        btnReleaseAllCache.onClick.AddListener(ReleaseAllCache);
+        btnSaveCacheMetaData.onClick.AddListener(SaveCacheMetaData);
     }
 
     [ContextMenu("Clear Cache")]
@@ -116,5 +120,15 @@ public class TestGetImg : MonoBehaviour
     private void CleanUpDownloadedImage()
     {
         StorageResource.CleanUpDownloadedImg().Forget();
+    }
+
+    private void ReleaseAllCache()
+    {
+        StorageResource.ReleaseAllCached();
+    }
+
+    private void SaveCacheMetaData()
+    {
+        StorageResource.SaveCachedMetaData();
     }
 }

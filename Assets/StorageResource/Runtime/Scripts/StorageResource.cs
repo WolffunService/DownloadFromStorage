@@ -242,6 +242,11 @@ namespace Wolffun.StorageResource
             }
         }
 
+        public static void SaveCachedMetaData()
+        {
+            cachedMetaData.SaveCache();
+        }
+
         public static async UniTaskVoid CleanUpDownloadedImg()
         {
 #if DEBUG
@@ -250,8 +255,8 @@ namespace Wolffun.StorageResource
             var startTime = Time.realtimeSinceStartup;
 #endif
 
-            CleanUpDownloadedImgByTotalCachedFolderSize();
-            CleanUpDownloadedImgByLastAccessTime();
+            await CleanUpDownloadedImgByTotalCachedFolderSize();
+            await CleanUpDownloadedImgByLastAccessTime();
 
 #if DEBUG
             var endTime = Time.realtimeSinceStartup;
@@ -259,42 +264,44 @@ namespace Wolffun.StorageResource
             Debug.Log("cacheFolderSize after cleanup: " + currentCacheFolderSizeBytes.ToString());
             Debug.Log("CleanUpDownloadedImg total time: " + (endTime - startTime));
 #endif
-
-            await UniTask.Yield();
+            SaveCachedMetaData();
         }
 
-
-        // Should we cleanup by folder size when running LoadImg instead
-        // At this time I want LoadImg run as fast as posible so I do it this way
-        private static void CleanUpDownloadedImgByTotalCachedFolderSize()
+        private static async UniTask CleanUpDownloadedImgByTotalCachedFolderSize()
         {
+            List<UniTask> deleteFileTaskList = new List<UniTask>();
+
             long maxCachedFolderSizeBytes = configData.maxCachedFolderSizeMB * 1024 * 1024;
             var cacheFolder = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
             long currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(cacheFolder);
 
             // oldest files on top of list
             var currentDownloadedImg = cachedMetaData.listLinkDownloaded.First;
-            while (currentCacheFolderSizeBytes > maxCachedFolderSizeBytes)
-            {               
-                if (currentDownloadedImg == null)
-                    break; // end of list
-
+            while (currentDownloadedImg != null)
+            {
                 var nextNode = currentDownloadedImg.Next;
+
+                if (currentCacheFolderSizeBytes < maxCachedFolderSizeBytes)
+                    break;
 
                 var imgAbsolutePath = GetAbsolutePath(currentDownloadedImg.Value);
                 if (File.Exists(imgAbsolutePath))
                 {
                     currentCacheFolderSizeBytes -= new FileInfo(imgAbsolutePath).Length;
-                    File.Delete(imgAbsolutePath);
+                    deleteFileTaskList.Add(LocalFileManager.DeleteAsync(imgAbsolutePath));
                 }
+                cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg, false);
 
-                cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg);
                 currentDownloadedImg = nextNode;
             }
+
+            await UniTask.WhenAll(deleteFileTaskList);
         }
 
-        private static void CleanUpDownloadedImgByLastAccessTime()
+        private static async UniTask CleanUpDownloadedImgByLastAccessTime()
         {
+            List<UniTask> deleteFileTaskList = new List<UniTask>();
+
             // oldest files on top of list
             var currentDownloadedImg = cachedMetaData.listLinkDownloaded.First;
             while (currentDownloadedImg != null)
@@ -304,7 +311,7 @@ namespace Wolffun.StorageResource
                 var imgAbsolutePath = GetAbsolutePath(currentDownloadedImg.Value);
                 if (!File.Exists(imgAbsolutePath))
                 {
-                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg);
+                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg, false);
                     currentDownloadedImg = nextNode;
                     continue;
                 }
@@ -312,12 +319,14 @@ namespace Wolffun.StorageResource
                 DateTime fileLastAccessTime = new FileInfo(imgAbsolutePath).LastAccessTime;
                 if (fileLastAccessTime.AddDays(configData.maxCachedDays).CompareTo(DateTime.Now) < 0)
                 {
-                    File.Delete(imgAbsolutePath);
-                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg);
+                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg, false);
+                    deleteFileTaskList.Add(LocalFileManager.DeleteAsync(imgAbsolutePath));
                 } 
 
                 currentDownloadedImg = nextNode;
             }
+
+            await UniTask.WhenAll(deleteFileTaskList);
         }
 
         private static string GetAbsolutePath(string relativePathUrl)
