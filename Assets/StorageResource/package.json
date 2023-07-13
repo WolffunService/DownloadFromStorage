@@ -8,6 +8,6 @@
     "download"
   ],
   "release": {
-    "branches": ["feature/ugc_improve"]
+    "branches": ["feature/integrate_ugc"]
   }
 }
