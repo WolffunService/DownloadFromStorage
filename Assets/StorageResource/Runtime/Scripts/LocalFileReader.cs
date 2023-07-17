@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
+using Cysharp.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -71,6 +72,40 @@ namespace Wolffun.StorageResource
             {
                 Debug.LogError("Save data --" + data.GetType() + "-- is error: " + ex.GetBaseException() + "\n" + ex.StackTrace);
             }
+        }
+
+        public static async UniTask DeleteAsync(string filePath)
+        {
+            try
+            {
+                File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("DeleteAsync fail - " + filePath + " - " + ex.Message);
+            }
+            await UniTask.Yield();
+        }
+
+        public static long GetDirectorySizeBytes(string directoryPath)
+        {
+            long size = 0;
+            DirectoryInfo directoryInfo = new DirectoryInfo(directoryPath);
+
+            FileInfo[] fileInfos = directoryInfo.GetFiles();
+            foreach (FileInfo fileInfo in fileInfos)
+            {
+                size += fileInfo.Length;
+            }
+
+            DirectoryInfo[] subDirectoryInfos = directoryInfo.GetDirectories();
+            foreach (DirectoryInfo subDirectoryInfo in subDirectoryInfos)
+            {
+                // Should we avoid using recursive?
+                size += GetDirectorySizeBytes(subDirectoryInfo.FullName);
+            }
+
+            return size;
         }
     }
 }

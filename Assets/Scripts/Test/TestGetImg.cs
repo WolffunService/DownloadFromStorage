@@ -14,6 +14,10 @@ public class TestGetImg : MonoBehaviour
 {
     [SerializeField] private TMP_InputField inputUrl;
     [SerializeField] private Button btnLoadImg;
+    [SerializeField] private Button btnLoadCosmetic;
+    [SerializeField] private Button btnCleanupDownloadedImg;
+    [SerializeField] private Button btnReleaseAllCache;
+    [SerializeField] private Button btnSaveCacheMetaData;
     [SerializeField] private Image img;
 
 
@@ -24,8 +28,12 @@ public class TestGetImg : MonoBehaviour
     private void Start()
     {
         StorageResource.Initialize(config);
-        
-        btnLoadImg.onClick.AddListener(OnClickLoadImg);
+
+        btnLoadImg.onClick.AddListener(LoadImgUrl);
+        btnLoadCosmetic.onClick.AddListener(LoadCosmeticAll);
+        btnCleanupDownloadedImg.onClick.AddListener(CleanUpDownloadedImage);
+        btnReleaseAllCache.onClick.AddListener(ReleaseAllCache);
+        btnSaveCacheMetaData.onClick.AddListener(SaveCacheMetaData);
     }
 
     [ContextMenu("Clear Cache")]
@@ -39,7 +47,7 @@ public class TestGetImg : MonoBehaviour
         listLoadedTexture.Clear();
     }
 
-    private async void OnClickLoadImg()
+    private async void LoadCosmeticAll()
     {
         var startTime = Time.realtimeSinceStartup;
         for (int i = 0; i <= 30; i++)
@@ -90,12 +98,37 @@ public class TestGetImg : MonoBehaviour
         endTime = Time.realtimeSinceStartup;
         Debug.Log("Load from cache " + (endTime - startTime));
 
-        await UniTask.Delay(5000);
-        StorageResource.ReleaseAllCached();
+        //await UniTask.Delay(5000);
+        //StorageResource.ReleaseAllCached();
     }
 
     private async void LoadCosmetic(int id)
     {
         listLoadedTexture.Add(await StorageResource.LoadImg(ZString.Format("/cosmetics/cosmetic_{0}.png", id)));
+        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+    }
+
+    private async void LoadImgUrl()
+    {
+        var startTime = Time.realtimeSinceStartup;
+        listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text));
+        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+        var endTime = Time.realtimeSinceStartup;
+        Debug.Log("Load from cache " + (endTime - startTime));
+    }
+
+    private void CleanUpDownloadedImage()
+    {
+        StorageResource.CleanUpDownloadedImg().Forget();
+    }
+
+    private void ReleaseAllCache()
+    {
+        StorageResource.ReleaseAllCached();
+    }
+
+    private void SaveCacheMetaData()
+    {
+        StorageResource.SaveCachedMetaData();
     }
 }
