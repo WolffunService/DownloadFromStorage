@@ -1,5 +1,12 @@
 {
   "dependencies": {
+    "com.assetstore.besthttp": {
+      "version": "https://github.com/WolffunGame/BestHTTP2.git#2.8.3",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "3bbd57297eef1860c9795e376fc514ad759448fa"
+    },
     "com.cysharp.unitask": {
       "version": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
       "depth": 0,
@@ -257,6 +264,13 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       },
       "url": "https://packages.unity.com"
+    },
+    "com.wolffun.log": {
+      "version": "https://github.com/WolffunGame/Wolffun-Log.git#1.0.1",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "2bb69cff9218406bd4785479aac40bc8cef6886e"
     },
     "com.unity.modules.ai": {
       "version": "1.0.0",

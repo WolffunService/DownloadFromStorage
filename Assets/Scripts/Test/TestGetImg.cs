@@ -9,6 +9,7 @@ using UnityEngine.Profiling;
 using UnityEngine.UI;
 using Wolffun.Image;
 using Wolffun.StorageResource;
+using Random = UnityEngine.Random;
 
 public class TestGetImg : MonoBehaviour
 {
@@ -17,7 +18,6 @@ public class TestGetImg : MonoBehaviour
     [SerializeField] private Button btnLoadCosmetic;
     [SerializeField] private Button btnCleanupDownloadedImg;
     [SerializeField] private Button btnReleaseAllCache;
-    [SerializeField] private Button btnSaveCacheMetaData;
     [SerializeField] private Image img;
 
 
@@ -33,7 +33,6 @@ public class TestGetImg : MonoBehaviour
         btnLoadCosmetic.onClick.AddListener(LoadCosmeticAll);
         btnCleanupDownloadedImg.onClick.AddListener(CleanUpDownloadedImage);
         btnReleaseAllCache.onClick.AddListener(ReleaseAllCache);
-        btnSaveCacheMetaData.onClick.AddListener(SaveCacheMetaData);
     }
 
     [ContextMenu("Clear Cache")]
@@ -50,6 +49,7 @@ public class TestGetImg : MonoBehaviour
     private async void LoadCosmeticAll()
     {
         var startTime = Time.realtimeSinceStartup;
+
         for (int i = 0; i <= 30; i++)
         {
             LoadCosmetic(i);
@@ -59,44 +59,22 @@ public class TestGetImg : MonoBehaviour
         {
             LoadCosmetic(i);
         }
-        //
+
         for (int i = 30001; i <= 30040; i++)
         {
             LoadCosmetic(i);
         }
-        //
+
         for (int i = 40001; i <= 40004; i++)
         {
             LoadCosmetic(i);
         }
 
         var endTime = Time.realtimeSinceStartup;
-        Debug.Log("Load from disk " + (endTime - startTime));
+        Debug.Log("LoadCosmeticAll time: " + (endTime - startTime));
 
-        img.sprite = listLoadedTexture[0].ConvertToSprite();
-
-        startTime = Time.realtimeSinceStartup;
-        for (int i = 0; i <= 30; i++)
-        {
-            LoadCosmetic(i);
-        }
-
-        for (int i = 20001; i <= 20031; i++)
-        {
-            LoadCosmetic(i);
-        }
-        //
-        for (int i = 30001; i <= 30040; i++)
-        {
-            LoadCosmetic(i);
-        }
-        //
-        for (int i = 40001; i <= 40004; i++)
-        {
-            LoadCosmetic(i);
-        }
-        endTime = Time.realtimeSinceStartup;
-        Debug.Log("Load from cache " + (endTime - startTime));
+        if (listLoadedTexture.Count > 0)
+            img.sprite = listLoadedTexture[Random.Range(0, listLoadedTexture.Count - 1)].ConvertToSprite();
 
         //await UniTask.Delay(5000);
         //StorageResource.ReleaseAllCached();
@@ -105,30 +83,32 @@ public class TestGetImg : MonoBehaviour
     private async void LoadCosmetic(int id)
     {
         listLoadedTexture.Add(await StorageResource.LoadImg(ZString.Format("/cosmetics/cosmetic_{0}.png", id)));
-        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+
+        if (listLoadedTexture.Count > 0)
+            img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
     }
 
     private async void LoadImgUrl()
     {
         var startTime = Time.realtimeSinceStartup;
+
         listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text));
-        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+
+        if (listLoadedTexture.Count > 0)
+            img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+
         var endTime = Time.realtimeSinceStartup;
-        Debug.Log("Load from cache " + (endTime - startTime));
+        Debug.Log("LoadImgUrl time: " + (endTime - startTime));
     }
 
     private void CleanUpDownloadedImage()
     {
-        StorageResource.CleanUpDownloadedImg().Forget();
+        //StorageResource.CleanUpDownloadedImg().Forget();
     }
 
     private void ReleaseAllCache()
     {
-        StorageResource.ReleaseAllCached();
-    }
-
-    private void SaveCacheMetaData()
-    {
-        StorageResource.SaveCachedMetaData();
+        listLoadedTexture.Clear();
+        StorageResource.RemoveAllFromMemoryCache();
     }
 }

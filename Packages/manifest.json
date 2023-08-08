@@ -43,6 +43,8 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
+    "com.unity.modules.xr": "1.0.0",
+    "com.assetstore.besthttp": "https://github.com/WolffunGame/BestHTTP2.git#2.8.3",
+    "com.wolffun.log": "https://github.com/WolffunGame/Wolffun-Log.git#1.0.1"
   }
 }

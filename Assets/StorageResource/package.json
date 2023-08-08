@@ -7,7 +7,11 @@
     "storage",
     "download"
   ],
+  "dependencies": {
+    "com.assetstore.besthttp": "https://github.com/WolffunGame/BestHTTP2.git#2.8.3",
+    "com.wolffun.log": "https://github.com/WolffunGame/Wolffun-Log.git#1.0.1"
+  },
   "release": {
-    "branches": ["feature/integrate_ugc"]
+    "branches": ["main", "feature/http-cache"]
   }
 }

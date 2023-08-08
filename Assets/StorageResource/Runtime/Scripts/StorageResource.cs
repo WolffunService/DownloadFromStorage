@@ -1,41 +1,32 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.CompilerServices;
-using System.Text;
-using Cysharp.Threading.Tasks;
+using BestHTTP;
 using Cysharp.Text;
+using Cysharp.Threading.Tasks;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Networking;
-
+using Wolffun.Log;
 
 namespace Wolffun.StorageResource
 {
-    public class StorageResource
+    public static class StorageResource
     {
-        private static StorageResouceConfigDataModel configData;
-        
-        private const string DEFAULT_CACHED_FOLDER_LOCATION = "/StorageResource";
-        private const string DEFAULT_STORAGE_URL = "https://assets.thetanarena.com";
+        private const string DEFAULT_BUCKET_URL = "https://assets.thetanarena.com";
         private const long DEFAULT_MAX_CACHED_FOLDER_SIZE_MB = 100;
         private const int DEFAULT_MAX_CACHED_DAYS = 30;
 
-        private static StorageCachedMetaData cachedMetaData;
-
+        private static StorageResouceConfigDataModel configData;
         private static bool _isInitialized;
 
         private static Dictionary<string, UniTaskCompletionSource<Texture2D>> loadingProcess;
         private static Dictionary<string, Texture2D> loadedResource;
 
-
-        public static void Initialize(string storageURL, string cachedFolderLocation = null,
-            long maxCachedFolderSizeMB = 100, int maxCachedDays = 30)
+        public static void Initialize(string bucketURL = DEFAULT_BUCKET_URL,
+            long maxCachedFolderSizeMB = DEFAULT_MAX_CACHED_FOLDER_SIZE_MB, 
+            int maxCachedDays = DEFAULT_MAX_CACHED_DAYS)
         {
             Initialize(new StorageResouceConfigDataModel()
             {
-                storageURL = storageURL,
-                cachedFolderLocation = cachedFolderLocation,
+                bucketURL = bucketURL,
                 maxCachedFolderSizeMB = maxCachedFolderSizeMB,
                 maxCachedDays = maxCachedDays
             });
@@ -43,24 +34,15 @@ namespace Wolffun.StorageResource
 
         public static void Initialize(StorageResouceConfigDataModel config)
         {
-            if (string.IsNullOrEmpty(config.storageURL))
-                config.storageURL = DEFAULT_STORAGE_URL;
-
-            if (string.IsNullOrEmpty(config.cachedFolderLocation))
-                config.cachedFolderLocation = DEFAULT_CACHED_FOLDER_LOCATION;
-
+            if (string.IsNullOrEmpty(config.bucketURL))
+                config.bucketURL = DEFAULT_BUCKET_URL;
             if (config.maxCachedFolderSizeMB <= 0)
                 config.maxCachedFolderSizeMB = DEFAULT_MAX_CACHED_FOLDER_SIZE_MB;
-
             if (config.maxCachedDays < 1)
                 config.maxCachedDays = DEFAULT_MAX_CACHED_DAYS;
-
-
             configData = config;
-            cachedMetaData = new StorageCachedMetaData();
-            cachedMetaData.Init(configData.cachedFolderLocation);
 
-            ReleaseAllCached();
+            RemoveAllFromMemoryCache();
             
             loadingProcess = new Dictionary<string, UniTaskCompletionSource<Texture2D>>();
             loadedResource = new Dictionary<string, Texture2D>();
@@ -68,276 +50,120 @@ namespace Wolffun.StorageResource
             _isInitialized = true;
         }
 
-        public static async UniTask<Texture2D> LoadImg(string relativePathUrl)
+        /// <summary>
+        /// Load Image from loaded resource on RAM, persistent cache or cloud storage
+        /// </summary>
+        public static async UniTask<Texture2D> LoadImg(string relativeURL)
         {
             if (!_isInitialized)
-                Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION, 
-                    DEFAULT_MAX_CACHED_FOLDER_SIZE_MB, DEFAULT_MAX_CACHED_DAYS);
+                Initialize();
 
-            if (loadedResource.TryGetValue(relativePathUrl, out var texture))
+            if (loadedResource.TryGetValue(relativeURL, out Texture2D value))
             {
-                cachedMetaData.MarkFileBeingUsed(relativePathUrl);
-                return texture;
-            }
-            
-            if (cachedMetaData.IsFileDownloaded(relativePathUrl))
-            {
-                return await LoadImgFromCached(relativePathUrl);
+                return value;
             }
             else
             {
-                return await LoadAndCacheImgFromStorage(relativePathUrl);
+                var tex = await LoadImgHttp(relativeURL);
+                if (!loadedResource.ContainsKey(relativeURL) && tex != null)
+                    loadedResource.Add(relativeURL, tex);
+
+                return tex;
             }
         }
 
-        private static async UniTask<Texture2D> LoadImgFromCached(string relativePath)
+        /// <summary>
+        /// Load Image from persistent cache or cloud storage
+        /// https://benedicht.github.io/BestHTTP-Documentation/pages/best_http2/protocols/http/Caching.html
+        /// </summary>
+        private static async UniTask<Texture2D> LoadImgHttp(string relativeURL)
         {
             Texture2D tex = null;
-            byte[] fileData;
+            var request = new HTTPRequest(new Uri(GetFullUrl(relativeURL)));
 
-            var imgAbsolutePath = GetAbsolutePath(relativePath);
-            
-            if (File.Exists(imgAbsolutePath))
+            try
             {
-                fileData = File.ReadAllBytes(imgAbsolutePath);
-#if UNITY_EDITOR || UNITY_STANDALONE_WIN
-                tex = new Texture2D(2, 2, TextureFormat.ARGB32, false);
-#elif UNITY_IOS
-                tex = new Texture2D(2, 2, TextureFormat.ASTC_5x5, false);
-#else
-                // android
-                tex = new Texture2D(4, 4, TextureFormat.ETC2_RGBA8, false);
-#endif
-                tex.LoadImage(fileData); //..this will auto-resize the texture dimensions.
-                tex.Compress(false);
+                var response =  await request.GetHTTPResponseAsync();
+                tex = response.DataAsTexture2D;
 
-                cachedMetaData.MarkFileBeingUsed(relativePath);
-                loadedResource[relativePath] = tex;
+                CommonLog.Log(String.Format(
+                    "LoadImgHttp url: {0} \n" +
+                    "IsFromCache: {1} \n" +
+                    "ETag: {2}\n" +
+                    "Expires: {3} \n" +
+                    "Cache-Control: {4}\n" +
+                    "CacheFileInfo GetPath {5} \n",
+                    relativeURL, response.IsFromCache,
+                    response.CacheFileInfo.ETag,
+                    response.CacheFileInfo.Expires,
+                    response.CacheFileInfo.Received,
+                    response.CacheFileInfo.GetPath()));
             }
-            else
+            catch (Exception ex)
             {
-                cachedMetaData.MarkFileUrlInvalid(relativePath);
-                tex = await LoadAndCacheImgFromStorage(relativePath);
+                CommonLog.LogWarning("LoadImgHttp Exception: " + ex.ToString());
             }
 
             return tex;
         }
 
-        private static async UniTask<Texture2D> LoadAndCacheImgFromStorage(string relativePath)
+        /// <summary>
+        /// Remove downloaded resource from persistent cache
+        /// This also remove loaded resource on memory cache
+        /// </summary>
+        public static void RemoveFromPersistentCache(string relativeURL)
         {
-            if (loadingProcess.TryGetValue(relativePath, out var completeSource))
-            {
-                
-                return await completeSource.Task;
-            }
+            RemoveFromMemoryCache(relativeURL);
 
-            var urlPullPath = ZString.Concat(configData.storageURL, relativePath);
-            
-            UnityWebRequest www = UnityWebRequestTexture.GetTexture(urlPullPath);
-
-            loadingProcess.Add(relativePath, new UniTaskCompletionSource<Texture2D>());
-
-            try
-            {
-                var operation = www.SendWebRequest();
-
-                await operation;
-
-                if (www.isNetworkError || www.isHttpError)
-                {
-                    Debug.LogError("Save image fail - " + urlPullPath + " - " + www.error);
-                    loadingProcess[relativePath].TrySetResult(null);
-                    loadingProcess.Remove(relativePath);
-                    return null;
-                }
-                else
-                {
-                    var myTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
-
-                    if(loadingProcess.TryGetValue(relativePath, out var loading))
-                    {
-                        loading.TrySetResult(myTexture);
-                        loadingProcess.Remove(relativePath);
-                    }
-
-                    if(!loadedResource.ContainsKey(relativePath))
-                    {
-                        loadedResource.Add(relativePath, myTexture);
-                    }
-
-                    byte[] imageBytes = myTexture.EncodeToPNG();
-
-                    var localFullPath = GetAbsolutePath(relativePath);
-                    string[] folderName = localFullPath.Split('/');
-                    string PathFolder = string.Empty;
-
-                    using (var strBuilder = ZString.CreateStringBuilder())
-                    {
-                        if (folderName.Length > 0)
-                        {
-                            for (int i = 0; i < folderName.Length - 1; i++)
-                            {
-                                var pathname = folderName[i];
-                                if (string.IsNullOrEmpty(pathname))
-                                {
-                                    continue;
-                                }
-
-                                if (i != 0)
-                                    strBuilder.Append("/");
-
-                                strBuilder.Append(folderName[i]);
-                            }
-                        }
-
-                        PathFolder = strBuilder.ToString();
-                    }
-
-
-                    Directory.CreateDirectory(PathFolder);
-
-                    File.WriteAllBytes(localFullPath, imageBytes);
-
-                    cachedMetaData.MarkFileUrlDownloaded(relativePath);
-
-                    return myTexture;
-                }
-            }
-            catch(Exception ex)
-            {
-                Debug.LogError("Download Image fail - " + urlPullPath + " - " + ex.Message);
-                loadingProcess[relativePath].TrySetResult(null);
-                loadingProcess.Remove(relativePath);
-                return null;
-            }
+            // TODO:
+            // Call Best-HTTP2 to delete cached file on persistent storage
         }
 
-        public static void ReleaseAllCached()
+        /// <summary>
+        /// Remove loaded resource from memory cached on RAM
+        /// This function not delete cached files saved on disk
+        /// </summary>
+        public static void RemoveFromMemoryCache(string relativeURL)
         {
             if (loadedResource == null)
                 return;
-            
-            foreach(var resource in loadedResource)
+
+            if (loadedResource.ContainsKey(relativeURL))
             {
-                if(resource.Value == null)
+                if (loadedResource[relativeURL] == null)
+                    return;
+
+                GameObject.Destroy(loadedResource[relativeURL]);
+                loadedResource.Remove(relativeURL);
+            }
+        }
+
+        /// <summary>
+        /// Remove all loaded resource from memory cached on RAM
+        /// This function not delete cached files saved on disk
+        /// </summary>
+        public static void RemoveAllFromMemoryCache()
+        {
+            if (loadedResource == null)
+                return;
+
+            foreach (var resource in loadedResource)
+            {
+                if (resource.Value == null)
                     continue;
-                
+
                 GameObject.Destroy(resource.Value);
             }
 
             loadedResource.Clear();
         }
 
-        public static void ReleaseCached(string relativeUrl)
+        /// <summary>
+        /// Get full cloud storage bucket url
+        /// </summary>
+        internal static string GetFullUrl(string relativeURL)
         {
-            if (loadedResource == null)
-                return;
-
-            if (loadedResource.ContainsKey(relativeUrl))
-            {
-                if (loadedResource[relativeUrl] == null)
-                    return;
-                GameObject.Destroy(loadedResource[relativeUrl]);
-                loadedResource.Remove(relativeUrl);
-            }
-        }
-
-        public static void SaveCachedMetaData()
-        {
-            cachedMetaData.SaveCache();
-        }
-
-        public static async UniTaskVoid CleanUpDownloadedImg()
-        {
-#if DEBUG
-            long currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(GetCachedFolderPath());
-            Debug.Log("cacheFolderSize before cleanup: " + currentCacheFolderSizeBytes.ToString());
-            var startTime = Time.realtimeSinceStartup;
-#endif
-
-            await CleanUpDownloadedImgByTotalCachedFolderSize();
-            await CleanUpDownloadedImgByLastAccessTime();
-
-#if DEBUG
-            var endTime = Time.realtimeSinceStartup;
-            currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(GetCachedFolderPath());
-            Debug.Log("cacheFolderSize after cleanup: " + currentCacheFolderSizeBytes.ToString());
-            Debug.Log("CleanUpDownloadedImg total time: " + (endTime - startTime));
-#endif
-            SaveCachedMetaData();
-        }
-
-        private static async UniTask CleanUpDownloadedImgByTotalCachedFolderSize()
-        {
-            List<UniTask> deleteFileTaskList = new List<UniTask>();
-
-            long maxCachedFolderSizeBytes = configData.maxCachedFolderSizeMB * 1024 * 1024;
-            var cacheFolder = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
-            long currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(cacheFolder);
-
-            // oldest files on top of list
-            var currentDownloadedImg = cachedMetaData.listLinkDownloaded.First;
-            while (currentDownloadedImg != null)
-            {
-                var nextNode = currentDownloadedImg.Next;
-
-                if (currentCacheFolderSizeBytes < maxCachedFolderSizeBytes)
-                    break;
-
-                var imgAbsolutePath = GetAbsolutePath(currentDownloadedImg.Value);
-                if (File.Exists(imgAbsolutePath))
-                {
-                    currentCacheFolderSizeBytes -= new FileInfo(imgAbsolutePath).Length;
-                    deleteFileTaskList.Add(LocalFileManager.DeleteAsync(imgAbsolutePath));
-                }
-                cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg, false);
-
-                currentDownloadedImg = nextNode;
-            }
-
-            await UniTask.WhenAll(deleteFileTaskList);
-        }
-
-        private static async UniTask CleanUpDownloadedImgByLastAccessTime()
-        {
-            List<UniTask> deleteFileTaskList = new List<UniTask>();
-
-            // oldest files on top of list
-            var currentDownloadedImg = cachedMetaData.listLinkDownloaded.First;
-            while (currentDownloadedImg != null)
-            {
-                var nextNode = currentDownloadedImg.Next;
-
-                var imgAbsolutePath = GetAbsolutePath(currentDownloadedImg.Value);
-                if (!File.Exists(imgAbsolutePath))
-                {
-                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg, false);
-                    currentDownloadedImg = nextNode;
-                    continue;
-                }
-
-                DateTime fileLastAccessTime = new FileInfo(imgAbsolutePath).LastAccessTime;
-                if (fileLastAccessTime.AddDays(configData.maxCachedDays).CompareTo(DateTime.Now) < 0)
-                {
-                    cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg, false);
-                    deleteFileTaskList.Add(LocalFileManager.DeleteAsync(imgAbsolutePath));
-                } 
-
-                currentDownloadedImg = nextNode;
-            }
-
-            await UniTask.WhenAll(deleteFileTaskList);
-        }
-
-        private static string GetAbsolutePath(string relativePathUrl)
-        {
-            return ZString.Concat(Application.persistentDataPath,
-                configData.cachedFolderLocation, relativePathUrl);
-        }
-
-        private static string GetCachedFolderPath()
-        {
-            return ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
+            return ZString.Concat(configData.bucketURL, relativeURL);
         }
     }
 }

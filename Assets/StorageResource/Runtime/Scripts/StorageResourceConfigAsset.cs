@@ -9,8 +9,7 @@ namespace Wolffun.StorageResource
     [Serializable]
     public struct StorageResouceConfigDataModel
     {
-        public string storageURL;
-        public string cachedFolderLocation;
+        public string bucketURL; // Cloud storage bucket URL
         public long maxCachedFolderSizeMB;
         public int maxCachedDays;
     }
