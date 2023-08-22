@@ -95,7 +95,7 @@ namespace Wolffun.StorageResource
             }
             catch (Exception ex)
             {
-                Debug.LogError("MarkFileUrlInvalid throw exception " + ex.Message);
+                Debug.LogWarning("MarkFileUrlInvalid throw exception " + ex.Message);
             }
 
             if (isSaveCachedMetaData)
@@ -117,7 +117,7 @@ namespace Wolffun.StorageResource
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError("MarkFileBeingUsed throw exception " + ex.Message);
+                    Debug.LogWarning("MarkFileBeingUsed throw exception " + ex.Message);
                 }
             }
 

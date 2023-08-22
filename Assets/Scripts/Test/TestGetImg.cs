@@ -14,6 +14,7 @@ public class TestGetImg : MonoBehaviour
 {
     [SerializeField] private TMP_InputField inputUrl;
     [SerializeField] private Button btnLoadImg;
+    [SerializeField] private Button btnLoadImgFullPath;
     [SerializeField] private Button btnLoadCosmetic;
     [SerializeField] private Button btnCleanupDownloadedImg;
     [SerializeField] private Button btnReleaseAllCache;
@@ -30,6 +31,7 @@ public class TestGetImg : MonoBehaviour
         StorageResource.Initialize(config);
 
         btnLoadImg.onClick.AddListener(LoadImgUrl);
+        btnLoadImgFullPath.onClick.AddListener(LoadImgUrlFullPath);
         btnLoadCosmetic.onClick.AddListener(LoadCosmeticAll);
         btnCleanupDownloadedImg.onClick.AddListener(CleanUpDownloadedImage);
         btnReleaseAllCache.onClick.AddListener(ReleaseAllCache);
@@ -112,6 +114,15 @@ public class TestGetImg : MonoBehaviour
     {
         var startTime = Time.realtimeSinceStartup;
         listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text));
+        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+        var endTime = Time.realtimeSinceStartup;
+        Debug.Log("Load from cache " + (endTime - startTime));
+    }
+
+    private async void LoadImgUrlFullPath()
+    {
+        var startTime = Time.realtimeSinceStartup;
+        listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text, false));
         img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
         var endTime = Time.realtimeSinceStartup;
         Debug.Log("Load from cache " + (endTime - startTime));
