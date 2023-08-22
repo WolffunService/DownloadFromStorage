@@ -8,7 +8,7 @@ using Cysharp.Threading.Tasks;
 using Cysharp.Text;
 using UnityEngine;
 using UnityEngine.Networking;
-
+using System.Linq;
 
 namespace Wolffun.StorageResource
 {
@@ -20,6 +20,7 @@ namespace Wolffun.StorageResource
         private const string DEFAULT_STORAGE_URL = "https://assets.thetanarena.com";
         private const long DEFAULT_MAX_CACHED_FOLDER_SIZE_MB = 100;
         private const int DEFAULT_MAX_CACHED_DAYS = 30;
+        private const int MAX_FILENAME_LENGTH = 100;
 
         private static StorageCachedMetaData cachedMetaData;
 
@@ -68,7 +69,7 @@ namespace Wolffun.StorageResource
             _isInitialized = true;
         }
 
-        public static async UniTask<Texture2D> LoadImg(string relativePathUrl)
+        public static async UniTask<Texture2D> LoadImg(string relativePathUrl, bool isUsingRelativePath = true)
         {
             if (!_isInitialized)
                 Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION, 
@@ -82,15 +83,15 @@ namespace Wolffun.StorageResource
             
             if (cachedMetaData.IsFileDownloaded(relativePathUrl))
             {
-                return await LoadImgFromCached(relativePathUrl);
+                return await LoadImgFromCached(relativePathUrl, isUsingRelativePath);
             }
             else
             {
-                return await LoadAndCacheImgFromStorage(relativePathUrl);
+                return await LoadAndCacheImgFromStorage(relativePathUrl, isUsingRelativePath);
             }
         }
 
-        private static async UniTask<Texture2D> LoadImgFromCached(string relativePath)
+        private static async UniTask<Texture2D> LoadImgFromCached(string relativePath, bool isUsingRelativePath)
         {
             Texture2D tex = null;
             byte[] fileData;
@@ -117,13 +118,13 @@ namespace Wolffun.StorageResource
             else
             {
                 cachedMetaData.MarkFileUrlInvalid(relativePath);
-                tex = await LoadAndCacheImgFromStorage(relativePath);
+                tex = await LoadAndCacheImgFromStorage(relativePath, isUsingRelativePath);
             }
 
             return tex;
         }
 
-        private static async UniTask<Texture2D> LoadAndCacheImgFromStorage(string relativePath)
+        private static async UniTask<Texture2D> LoadAndCacheImgFromStorage(string relativePath, bool isUsingRelativePath)
         {
             if (loadingProcess.TryGetValue(relativePath, out var completeSource))
             {
@@ -131,8 +132,14 @@ namespace Wolffun.StorageResource
                 return await completeSource.Task;
             }
 
-            var urlPullPath = ZString.Concat(configData.storageURL, relativePath);
-            
+            var urlPullPath = "";
+            if (isUsingRelativePath)
+                urlPullPath = ZString.Concat(configData.storageURL, relativePath);
+            else
+                // isUsingRelativePath == false means this path is fulllink
+                // we do not need to add bucket url to it
+                urlPullPath = relativePath;
+
             UnityWebRequest www = UnityWebRequestTexture.GetTexture(urlPullPath);
 
             loadingProcess.Add(relativePath, new UniTaskCompletionSource<Texture2D>());
@@ -332,12 +339,26 @@ namespace Wolffun.StorageResource
         private static string GetAbsolutePath(string relativePathUrl)
         {
             return ZString.Concat(Application.persistentDataPath,
-                configData.cachedFolderLocation, relativePathUrl);
+                configData.cachedFolderLocation, CleanFileName(relativePathUrl));
         }
 
         private static string GetCachedFolderPath()
         {
             return ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
+        }
+
+        public static string CleanFileName(string fileName)
+        {
+            var path = Path.GetInvalidFileNameChars().Aggregate(fileName, (current, c) => current.Replace(c.ToString(), string.Empty));
+
+            // Some OS will throw exception if file path is too long
+            if (path.Length > MAX_FILENAME_LENGTH)
+                path = path.Substring(path.Length - MAX_FILENAME_LENGTH);
+
+            if (!string.Equals(path[0], "/"))
+                path = "/" + path;
+
+            return path;
         }
     }
 }
