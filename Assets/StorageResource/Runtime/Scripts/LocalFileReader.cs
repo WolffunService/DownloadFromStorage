@@ -60,6 +60,12 @@ namespace Wolffun.StorageResource
                 PlayerPrefs.SetString(filePath, saveData);
                 PlayerPrefs.Save();
 #else
+                // We first need to check if cached folder exist or not
+                // Create cached folder if not exist
+                string directoryName = Path.GetDirectoryName(filePath);
+                if (!Directory.Exists(directoryName))
+                    Directory.CreateDirectory(directoryName);
+
                 BinaryFormatter bf = new BinaryFormatter();
 
                 FileStream file = File.Open(filePath, FileMode.OpenOrCreate);
@@ -89,23 +95,31 @@ namespace Wolffun.StorageResource
 
         public static long GetDirectorySizeBytes(string directoryPath)
         {
-            long size = 0;
-            DirectoryInfo directoryInfo = new DirectoryInfo(directoryPath);
-
-            FileInfo[] fileInfos = directoryInfo.GetFiles();
-            foreach (FileInfo fileInfo in fileInfos)
+            try
             {
-                size += fileInfo.Length;
-            }
+                long size = 0;
+                DirectoryInfo directoryInfo = new DirectoryInfo(directoryPath);
 
-            DirectoryInfo[] subDirectoryInfos = directoryInfo.GetDirectories();
-            foreach (DirectoryInfo subDirectoryInfo in subDirectoryInfos)
+                FileInfo[] fileInfos = directoryInfo.GetFiles();
+                foreach (FileInfo fileInfo in fileInfos)
+                {
+                    size += fileInfo.Length;
+                }
+
+                DirectoryInfo[] subDirectoryInfos = directoryInfo.GetDirectories();
+                foreach (DirectoryInfo subDirectoryInfo in subDirectoryInfos)
+                {
+                    // Should we avoid using recursive?
+                    size += GetDirectorySizeBytes(subDirectoryInfo.FullName);
+                }
+
+                return size;
+            }
+            catch (Exception ex)
             {
-                // Should we avoid using recursive?
-                size += GetDirectorySizeBytes(subDirectoryInfo.FullName);
+                Debug.LogError("GetDirectorySizeBytes --" + directoryPath + "-- is error: " + ex.GetBaseException() + "\n" + ex.StackTrace);
+                return 0;
             }
-
-            return size;
         }
     }
 }
