@@ -1,6 +1,6 @@
 {
   "name": "com.wolffun.download-from-storage",
-  "version": "1.0.6-ugc-6",
+  "version": "1.0.9",
   "displayName": "Download From Storage",
   "description": "This is a package let you download image, video, sound,... from cloud storage",
   "keywords": [
@@ -8,6 +8,6 @@
     "download"
   ],
   "release": {
-    "branches": ["feature/integrate_ugc, main"]
+    "branches": ["main"]
   }
 }
