@@ -97,6 +97,9 @@ namespace Wolffun.StorageResource
         {
             try
             {
+                if (!Directory.Exists(directoryPath))
+                    return 0;
+
                 long size = 0;
                 DirectoryInfo directoryInfo = new DirectoryInfo(directoryPath);
 
