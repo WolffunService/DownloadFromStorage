@@ -15,7 +15,7 @@ namespace Wolffun.StorageResource
     public class StorageResource
     {
         private static StorageResouceConfigDataModel configData;
-        
+
         private const string DEFAULT_CACHED_FOLDER_LOCATION = "/StorageResource";
         private const string DEFAULT_STORAGE_URL = "https://assets.thetanarena.com";
         private const long DEFAULT_MAX_CACHED_FOLDER_SIZE_MB = 100;
@@ -62,7 +62,7 @@ namespace Wolffun.StorageResource
             cachedMetaData.Init(configData.cachedFolderLocation);
 
             ReleaseAllCached();
-            
+
             loadingProcess = new Dictionary<string, UniTaskCompletionSource<Texture2D>>();
             loadedResource = new Dictionary<string, Texture2D>();
 
@@ -72,7 +72,7 @@ namespace Wolffun.StorageResource
         public static async UniTask<Texture2D> LoadImg(string relativePathUrl, bool isUsingRelativePath = true)
         {
             if (!_isInitialized)
-                Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION, 
+                Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION,
                     DEFAULT_MAX_CACHED_FOLDER_SIZE_MB, DEFAULT_MAX_CACHED_DAYS);
 
             if (loadedResource.TryGetValue(relativePathUrl, out var texture))
@@ -80,7 +80,7 @@ namespace Wolffun.StorageResource
                 cachedMetaData.MarkFileBeingUsed(relativePathUrl);
                 return texture;
             }
-            
+
             if (cachedMetaData.IsFileDownloaded(relativePathUrl))
             {
                 return await LoadImgFromCached(relativePathUrl, isUsingRelativePath);
@@ -97,10 +97,10 @@ namespace Wolffun.StorageResource
             byte[] fileData;
 
             var imgAbsolutePath = GetAbsolutePath(relativePath);
-            
+
             if (File.Exists(imgAbsolutePath))
             {
-                fileData = File.ReadAllBytes(imgAbsolutePath);
+                fileData = await File.ReadAllBytesAsync(imgAbsolutePath);
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN
                 tex = new Texture2D(2, 2, TextureFormat.ARGB32, false);
 #elif UNITY_IOS
@@ -128,7 +128,7 @@ namespace Wolffun.StorageResource
         {
             if (loadingProcess.TryGetValue(relativePath, out var completeSource))
             {
-                
+
                 return await completeSource.Task;
             }
 
@@ -161,13 +161,13 @@ namespace Wolffun.StorageResource
                 {
                     var myTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
 
-                    if(loadingProcess.TryGetValue(relativePath, out var loading))
+                    if (loadingProcess.TryGetValue(relativePath, out var loading))
                     {
                         loading.TrySetResult(myTexture);
                         loadingProcess.Remove(relativePath);
                     }
 
-                    if(!loadedResource.ContainsKey(relativePath))
+                    if (!loadedResource.ContainsKey(relativePath))
                     {
                         loadedResource.Add(relativePath, myTexture);
                     }
@@ -203,14 +203,14 @@ namespace Wolffun.StorageResource
 
                     Directory.CreateDirectory(PathFolder);
 
-                    File.WriteAllBytes(localFullPath, imageBytes);
+                    await File.WriteAllBytesAsync(localFullPath, imageBytes);
 
                     cachedMetaData.MarkFileUrlDownloaded(relativePath);
 
                     return myTexture;
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Debug.LogError("Download Image fail - " + urlPullPath + " - " + ex.Message);
                 loadingProcess[relativePath].TrySetResult(null);
@@ -223,12 +223,12 @@ namespace Wolffun.StorageResource
         {
             if (loadedResource == null)
                 return;
-            
-            foreach(var resource in loadedResource)
+
+            foreach (var resource in loadedResource)
             {
-                if(resource.Value == null)
+                if (resource.Value == null)
                     continue;
-                
+
                 GameObject.Destroy(resource.Value);
             }
 
@@ -328,7 +328,7 @@ namespace Wolffun.StorageResource
                 {
                     cachedMetaData.MarkFileUrlInvalid(currentDownloadedImg.Value, currentDownloadedImg, false);
                     deleteFileTaskList.Add(LocalFileManager.DeleteAsync(imgAbsolutePath));
-                } 
+                }
 
                 currentDownloadedImg = nextNode;
             }
