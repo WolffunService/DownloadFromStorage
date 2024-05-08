@@ -34,7 +34,7 @@ namespace Wolffun.StorageResource
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private void ResetEventCache()
         {
-            
+            _onClearCacheCallback = null;
         }
 
 
