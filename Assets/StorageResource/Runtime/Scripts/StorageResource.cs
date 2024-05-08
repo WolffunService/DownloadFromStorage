@@ -29,6 +29,14 @@ namespace Wolffun.StorageResource
         private static Dictionary<string, UniTaskCompletionSource<Texture2D>> loadingProcess;
         private static Dictionary<string, Texture2D> loadedResource;
 
+        private static Action<string[]> _onClearCacheCallback;
+        
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private void ResetEventCache()
+        {
+            
+        }
+
 
         public static void Initialize(string storageURL, string cachedFolderLocation = null,
             long maxCachedFolderSizeMB = 100, int maxCachedDays = 30)
@@ -224,14 +232,20 @@ namespace Wolffun.StorageResource
             if (loadedResource == null)
                 return;
             
+            string[] clearedUrl = new string[loadedResource.Count];
+            int index = 0;
             foreach(var resource in loadedResource)
             {
+                clearedUrl[index] = resource.Key;
+                index++;
+                
                 if(resource.Value == null)
                     continue;
                 
                 GameObject.Destroy(resource.Value);
             }
-
+            
+            _onClearCacheCallback?.Invoke(clearedUrl);
             loadedResource.Clear();
         }
 
@@ -242,11 +256,15 @@ namespace Wolffun.StorageResource
 
             if (loadedResource.ContainsKey(relativeUrl))
             {
-                if (loadedResource[relativeUrl] == null)
-                    return;
-                GameObject.Destroy(loadedResource[relativeUrl]);
-                loadedResource.Remove(relativeUrl);
+                if (loadedResource[relativeUrl] != null)
+                {
+                    GameObject.Destroy(loadedResource[relativeUrl]);
+                    loadedResource.Remove(relativeUrl);
+                }
+                
+                _onClearCacheCallback?.Invoke(new string[1] {relativeUrl});
             }
+            
         }
 
         public static void SaveCachedMetaData()
@@ -359,6 +377,16 @@ namespace Wolffun.StorageResource
                 path = "/" + path;
 
             return path;
+        }
+
+        public void RegisterOnClearCacheCallback(Action<string[]> callback)
+        {
+            _onClearCacheCallback += callback;
+        }
+        
+        public void UnRegisterOnClearCacheCallback(Action<string[]> callback)
+        {
+            _onClearCacheCallback -= callback;
         }
     }
 }
