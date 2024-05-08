@@ -244,9 +244,8 @@ namespace Wolffun.StorageResource
                 
                 GameObject.Destroy(resource.Value);
             }
-            
-            _onClearCacheCallback?.Invoke(clearedUrl);
             loadedResource.Clear();
+            _onClearCacheCallback?.Invoke(clearedUrl);
         }
 
         public static void ReleaseCached(string relativeUrl)
