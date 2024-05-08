@@ -379,12 +379,12 @@ namespace Wolffun.StorageResource
             return path;
         }
 
-        public void RegisterOnClearCacheCallback(Action<string[]> callback)
+        public static void RegisterOnClearCacheCallback(Action<string[]> callback)
         {
             _onClearCacheCallback += callback;
         }
         
-        public void UnRegisterOnClearCacheCallback(Action<string[]> callback)
+        public static void UnRegisterOnClearCacheCallback(Action<string[]> callback)
         {
             _onClearCacheCallback -= callback;
         }
