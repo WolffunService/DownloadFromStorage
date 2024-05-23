@@ -167,7 +167,8 @@ namespace Wolffun.StorageResource
                 }
                 else
                 {
-                    var myTexture = ((DownloadHandlerTexture)www.downloadHandler).texture;
+                    var downloadHandler = (DownloadHandlerTexture)www.downloadHandler;
+                    var myTexture = downloadHandler.texture;
 
                     if(loadingProcess.TryGetValue(relativePath, out var loading))
                     {
@@ -180,7 +181,7 @@ namespace Wolffun.StorageResource
                         loadedResource.Add(relativePath, myTexture);
                     }
 
-                    byte[] imageBytes = myTexture.EncodeToPNG();
+                    byte[] imageBytes = downloadHandler.data;
 
                     var localFullPath = GetAbsolutePath(relativePath);
                     string[] folderName = localFullPath.Split('/');
