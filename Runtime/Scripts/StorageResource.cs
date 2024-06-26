@@ -5,7 +5,6 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Cysharp.Threading.Tasks;
-using Cysharp.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Linq;
@@ -15,6 +14,8 @@ namespace Wolffun.StorageResource
     public class StorageResource
     {
         private static StorageResouceConfigDataModel configData;
+
+        private static StringBuilder _stringBuilder = new StringBuilder();
         
         private const string DEFAULT_CACHED_FOLDER_LOCATION = "/StorageResource";
         private const string DEFAULT_STORAGE_URL = "https://assets.thetanarena.com";
@@ -91,7 +92,7 @@ namespace Wolffun.StorageResource
             
             if (cachedMetaData.IsFileDownloaded(relativePathUrl))
             {
-                return await LoadImgFromCached(relativePathUrl, isUsingRelativePath);
+                return await LoadImgFromCached_UsingWWW(relativePathUrl, isUsingRelativePath);
             }
             else
             {
@@ -131,6 +132,45 @@ namespace Wolffun.StorageResource
 
             return tex;
         }
+        
+        private static async UniTask<Texture2D> LoadImgFromCached_UsingWWW(string relativePath, bool isUsingRelativePath)
+        {
+            Texture2D tex = null;
+            byte[] fileData;
+
+            var imgAbsolutePath = GetAbsolutePath(relativePath);
+            
+            if (File.Exists(imgAbsolutePath))
+            {
+                var www = UnityWebRequestTexture.GetTexture(imgAbsolutePath);
+                var operation = await www.SendWebRequest();
+
+                if (operation.result != UnityWebRequest.Result.Success)
+                {
+                    cachedMetaData.MarkFileUrlInvalid(relativePath);
+                    tex = await LoadAndCacheImgFromStorage(relativePath, isUsingRelativePath);
+                    return tex;
+                }
+                
+                var downloadHandler = (DownloadHandlerTexture)www.downloadHandler;
+                
+                tex = downloadHandler.texture;
+                tex.Compress(false);
+                
+                //tex.LoadImage(fileData); //..this will auto-resize the texture dimensions.
+                //tex.Compress(false);
+
+                cachedMetaData.MarkFileBeingUsed(relativePath);
+                loadedResource[relativePath] = tex;
+            }
+            else
+            {
+                cachedMetaData.MarkFileUrlInvalid(relativePath);
+                tex = await LoadAndCacheImgFromStorage(relativePath, isUsingRelativePath);
+            }
+
+            return tex;
+        }
 
         private static async UniTask<Texture2D> LoadAndCacheImgFromStorage(string relativePath, bool isUsingRelativePath)
         {
@@ -142,7 +182,7 @@ namespace Wolffun.StorageResource
 
             var urlPullPath = "";
             if (isUsingRelativePath)
-                urlPullPath = ZString.Concat(configData.storageURL, relativePath);
+                urlPullPath = string.Concat(configData.storageURL, relativePath);
             else
                 // isUsingRelativePath == false means this path is fulllink
                 // we do not need to add bucket url to it
@@ -187,27 +227,24 @@ namespace Wolffun.StorageResource
                     string[] folderName = localFullPath.Split('/');
                     string PathFolder = string.Empty;
 
-                    using (var strBuilder = ZString.CreateStringBuilder())
+                    _stringBuilder.Clear();
+                    if (folderName.Length > 0)
                     {
-                        if (folderName.Length > 0)
+                        for (int i = 0; i < folderName.Length - 1; i++)
                         {
-                            for (int i = 0; i < folderName.Length - 1; i++)
+                            var pathname = folderName[i];
+                            if (string.IsNullOrEmpty(pathname))
                             {
-                                var pathname = folderName[i];
-                                if (string.IsNullOrEmpty(pathname))
-                                {
-                                    continue;
-                                }
-
-                                if (i != 0)
-                                    strBuilder.Append("/");
-
-                                strBuilder.Append(folderName[i]);
+                                continue;
                             }
-                        }
 
-                        PathFolder = strBuilder.ToString();
+                            if (i != 0)
+                                _stringBuilder.Append("/");
+
+                            _stringBuilder.Append(folderName[i]);
+                        }
                     }
+                    PathFolder = _stringBuilder.ToString();
 
 
                     Directory.CreateDirectory(PathFolder);
@@ -297,7 +334,7 @@ namespace Wolffun.StorageResource
             List<UniTask> deleteFileTaskList = new List<UniTask>();
 
             long maxCachedFolderSizeBytes = configData.maxCachedFolderSizeMB * 1024 * 1024;
-            var cacheFolder = ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
+            var cacheFolder = string.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
             long currentCacheFolderSizeBytes = LocalFileManager.GetDirectorySizeBytes(cacheFolder);
 
             // oldest files on top of list
@@ -356,13 +393,13 @@ namespace Wolffun.StorageResource
 
         private static string GetAbsolutePath(string relativePathUrl)
         {
-            return ZString.Concat(Application.persistentDataPath,
+            return string.Concat(Application.persistentDataPath,
                 configData.cachedFolderLocation, CleanFileName(relativePathUrl));
         }
 
         private static string GetCachedFolderPath()
         {
-            return ZString.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
+            return string.Concat(Application.persistentDataPath, configData.cachedFolderLocation);
         }
 
         public static string CleanFileName(string fileName)
