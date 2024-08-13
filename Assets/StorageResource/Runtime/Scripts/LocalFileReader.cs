@@ -25,7 +25,7 @@ namespace Wolffun.StorageResource
                     string savedData = string.Empty;
 
 #if UNITY_WEBGL
-                    savedData = PlayerPrefs.GetString(dataLink);
+                    savedData = PlayerPrefs.GetString(filePath);
 #else
                     BinaryFormatter bf = new BinaryFormatter();
                     FileStream file = File.Open(filePath, FileMode.Open);
@@ -34,7 +34,7 @@ namespace Wolffun.StorageResource
                     file = null;
 #endif
                     T loadedData = JsonConvert.DeserializeObject<T>(savedData);
-                    
+
                     return loadedData;
                 }
                 catch (Exception ex)
