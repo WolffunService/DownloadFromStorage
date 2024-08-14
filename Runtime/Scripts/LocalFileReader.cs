@@ -13,7 +13,7 @@ namespace Wolffun.StorageResource
         {
             bool isHasFile = false;
 #if UNITY_WEBGL
-            isHasFile = PlayerPrefs.HasKey(filePath);
+            isHasFile = false;
 #else
             isHasFile = File.Exists(filePath);
 #endif
