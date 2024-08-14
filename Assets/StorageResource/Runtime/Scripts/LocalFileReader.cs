@@ -13,7 +13,7 @@ namespace Wolffun.StorageResource
         {
             bool isHasFile = false;
 #if UNITY_WEBGL
-            isHasFile = PlayerPrefs.HasKey(filePath);
+            isHasFile = false;
 #else
             isHasFile = File.Exists(filePath);
 #endif
@@ -25,7 +25,7 @@ namespace Wolffun.StorageResource
                     string savedData = string.Empty;
 
 #if UNITY_WEBGL
-                    savedData = PlayerPrefs.GetString(dataLink);
+                    savedData = PlayerPrefs.GetString(filePath);
 #else
                     BinaryFormatter bf = new BinaryFormatter();
                     FileStream file = File.Open(filePath, FileMode.Open);
@@ -34,7 +34,7 @@ namespace Wolffun.StorageResource
                     file = null;
 #endif
                     T loadedData = JsonConvert.DeserializeObject<T>(savedData);
-                    
+
                     return loadedData;
                 }
                 catch (Exception ex)
@@ -57,8 +57,9 @@ namespace Wolffun.StorageResource
                 string saveData = JsonConvert.SerializeObject(data);
 
 #if UNITY_WEBGL
-                PlayerPrefs.SetString(filePath, saveData);
-                PlayerPrefs.Save();
+                return;
+                // PlayerPrefs.SetString(filePath, saveData);
+                // PlayerPrefs.Save();
 #else
                 // We first need to check if cached folder exist or not
                 // Create cached folder if not exist
@@ -82,6 +83,9 @@ namespace Wolffun.StorageResource
 
         public static async UniTask DeleteAsync(string filePath)
         {
+#if UNITY_WEBGL
+            return;
+#endif
             try
             {
                 File.Delete(filePath);
@@ -97,6 +101,9 @@ namespace Wolffun.StorageResource
         {
             try
             {
+#if UNITY_WEBGL
+                return 0;
+#endif
                 if (!Directory.Exists(directoryPath))
                     return 0;
 
