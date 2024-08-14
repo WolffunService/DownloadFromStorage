@@ -57,8 +57,9 @@ namespace Wolffun.StorageResource
                 string saveData = JsonConvert.SerializeObject(data);
 
 #if UNITY_WEBGL
-                PlayerPrefs.SetString(filePath, saveData);
-                PlayerPrefs.Save();
+                return;
+                // PlayerPrefs.SetString(filePath, saveData);
+                // PlayerPrefs.Save();
 #else
                 // We first need to check if cached folder exist or not
                 // Create cached folder if not exist
@@ -82,6 +83,9 @@ namespace Wolffun.StorageResource
 
         public static async UniTask DeleteAsync(string filePath)
         {
+#if UNITY_WEBGL
+            return;
+#endif
             try
             {
                 File.Delete(filePath);
@@ -97,6 +101,9 @@ namespace Wolffun.StorageResource
         {
             try
             {
+#if UNITY_WEBGL
+                return 0;
+#endif
                 if (!Directory.Exists(directoryPath))
                     return 0;
 
