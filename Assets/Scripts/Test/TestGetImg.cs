@@ -1,4 +1,3 @@
-using Cysharp.Text;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections;
@@ -28,6 +27,8 @@ public class TestGetImg : MonoBehaviour
 
     private void Start()
     {
+        Application.targetFrameRate = 60;
+        
         StorageResource.Initialize(config);
 
         btnLoadImg.onClick.AddListener(LoadImgUrl);
@@ -106,15 +107,25 @@ public class TestGetImg : MonoBehaviour
 
     private async void LoadCosmetic(int id)
     {
-        listLoadedTexture.Add(await StorageResource.LoadImg(ZString.Format("/cosmetics/cosmetic_{0}.png", id)));
+        listLoadedTexture.Add(await StorageResource.LoadImg($"/cosmetics/cosmetic_{id}.png"));
         img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
     }
 
     private async void LoadImgUrl()
     {
         var startTime = Time.realtimeSinceStartup;
-        listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text));
-        img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+        //listLoadedTexture.Add(await StorageResource.LoadImg(inputUrl.text));
+        //img.sprite = listLoadedTexture[listLoadedTexture.Count - 1].ConvertToSprite();
+        Texture2D tex;
+        for (int i = 0; i < 6; i++)
+        {
+            tex = await StorageResource.LoadImg(inputUrl.text);
+            StorageResource.ReleaseAllCached();
+        }
+        tex = await StorageResource.LoadImg(inputUrl.text);
+        tex.ignoreMipmapLimit = true;
+        img.sprite = tex.ConvertToSprite();
+        
         var endTime = Time.realtimeSinceStartup;
         Debug.Log("Load from cache " + (endTime - startTime));
     }
