@@ -92,7 +92,7 @@ namespace Wolffun.StorageResource
             
             if (cachedMetaData.IsFileDownloaded(relativePathUrl))
             {
-                return await LoadImgFromCached_UsingWWW(relativePathUrl, isUsingRelativePath);
+                return await LoadImgFromCached(relativePathUrl, isUsingRelativePath);
             }
             else
             {
@@ -133,6 +133,7 @@ namespace Wolffun.StorageResource
             return tex;
         }
         
+        /*
         private static async UniTask<Texture2D> LoadImgFromCached_UsingWWW(string relativePath, bool isUsingRelativePath)
         {
             Texture2D tex = null;
@@ -171,6 +172,7 @@ namespace Wolffun.StorageResource
 
             return tex;
         }
+        */
 
         private static async UniTask<Texture2D> LoadAndCacheImgFromStorage(string relativePath, bool isUsingRelativePath)
         {
