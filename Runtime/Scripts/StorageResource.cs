@@ -18,7 +18,7 @@ namespace Wolffun.StorageResource
         private static StringBuilder _stringBuilder = new StringBuilder();
         
         private const string DEFAULT_CACHED_FOLDER_LOCATION = "/StorageResource";
-        private const string DEFAULT_STORAGE_URL = "https://assets.thetanarena.com";
+        private const string DEFAULT_STORAGE_URL = "";
         private const long DEFAULT_MAX_CACHED_FOLDER_SIZE_MB = 100;
         private const int DEFAULT_MAX_CACHED_DAYS = 30;
         private const int MAX_FILENAME_LENGTH = 100;
