@@ -80,6 +80,7 @@ namespace Wolffun.StorageResource
 
         public static async UniTask<Texture2D> LoadImg(string relativePathUrl, bool isUsingRelativePath = true)
         {
+            Debug.Log($"LoadImg {_isInitialized} {relativePathUrl}");
             if (!_isInitialized)
                 Initialize(DEFAULT_STORAGE_URL, DEFAULT_CACHED_FOLDER_LOCATION, 
                     DEFAULT_MAX_CACHED_FOLDER_SIZE_MB, DEFAULT_MAX_CACHED_DAYS);
@@ -190,8 +191,8 @@ namespace Wolffun.StorageResource
                 // we do not need to add bucket url to it
                 urlPullPath = relativePath;
 
+            Debug.Log($"LoadAndCacheImgFromStorage {urlPullPath}");
             UnityWebRequest www = UnityWebRequestTexture.GetTexture(urlPullPath);
-
             loadingProcess.Add(relativePath, new UniTaskCompletionSource<Texture2D>());
 
             try

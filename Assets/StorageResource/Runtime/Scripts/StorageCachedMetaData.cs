@@ -18,10 +18,13 @@ namespace Wolffun.StorageResource
         
         internal void Init(string saveFileFolderPath)
         {
+            Debug.Log("Mine Init");
             fullFilePath = Application.persistentDataPath + saveFileFolderPath + CACHED_FILE_NAME;
             listCacheFilePath = Application.persistentDataPath + saveFileFolderPath + LIST_CACHED_FILE_NAME;
             LoadCached(fullFilePath);
+            Debug.Log($"Mine Init {listCacheFilePath}");
             LoadListCached(listCacheFilePath);
+            Debug.Log($"Mine Init done");
         }
 
         internal void SaveCache()
